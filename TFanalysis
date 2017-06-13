@@ -1,1 +1,208 @@
-# create a study in EEGLAB
+%% The scipt is written by Xiaoping Fang (xpfang4@gmail.com).
+
+% Currently you will need to have preprocessed data and
+% formatted in a way that is readable in EEGLAB.
+
+% The data I analyzed were collected with EGI (128 channel/GSN-Hydrocel). 
+% Preprocessing was done with NetStation and files were further formatted 
+% with EP Toolkit (developped by Joseph Dien) from simple binay format 
+% (.raw) to eeglab files (.fdt/.set).
+
+% note: still need to make the script nicer, see: https://sccn.ucsd.edu/eeglab/workshop06/handout/Practicum_8_STUDYscript.pdf
+
+%% basic study information and setup
+if ismac
+   StudyPath = '/Volumes/Samsung_T3/Oscillation/Study_filterred_100HZ/Segment_-600_1000/Exported/EEGLAB';
+elseif ispc
+   StudyPath = 'F:\Oscillation\Study_filterred_100HZ\Segment_-600_1000\Exported/EEGLAB';
+elseif isunix
+    StudyPath = 'tobedefined'; % not necessary if you never switch to Linux
+else
+    disp('Platform not supported')
+end
+
+cd(StudyPath)
+
+StudyName = 'WordLearning_Study_TimeFrequencyAnalysis_Try4.study';
+StudyNameShort = 'WordLearning';
+TaskName = 'Recall';
+StudyNote = 'StudyPhase';
+
+AllSubject = {...
+    '601', '602', '603','604' '606' '607' '608' '612' '613' '614' ...
+    '615' '616' '617' '618' '619' '620' '621' '622' '624', '626' ...
+    '627' '628'...
+    }; % values are used as subject ID 
+Condition = {...
+    'KnownControl_early', 'KnownControl_late', ...
+    'KnownMean_early', 'KnownMean_late',...
+    'NovelControl_early','NovelControl_late',...
+    'NovelMean_early','NovelMean_late'...
+    }; % 8 conditions: 2 by 2 by 2
+% be careful with dataset names: SubjectID_ConditionName.set in my case;
+% an easier way to load data is to put filename, subjectID,ConditionName
+% in a cell array, and only need to load all files in an index loop;
+
+% define clusters: e.g., Cz
+Cz = {'E7' 'E31' 'E55' 'E80' 'E106' 'E129'};
+
+% parameters for time-frequency analysis
+waveletpara = [3 0.5]; % Morlet wavelet is used by default
+freqrange = [4 80]; % theta: 4-8; alpha: 9-12; beta: 13-29 (13-20,21-29); gamma:30-80 (30-59; 60-80)
+baselinerange = [449 549]; % make sure baseline is not affected by edge effects
+nbfrequency = 77; % 1HZ step from 4 to 80 HZ
+timepoints = 200; % default 200
+
+%% create study and load datasets: only need to do it once 
+[ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
+i = 1;
+for j = 1:length(AllSubject)
+    for k = 1:length(Condition)
+        [STUDY ALLEEG] = std_editset( STUDY, ALLEEG, ...
+    'name',StudyNameShort,'task',TaskName,'notes',StudyNote,...
+    'commands',{...
+    'index' i ...
+    'load' strcat(AllSubject{j},'_',Condition{k},'.set') ...
+    'subject' AllSubject{j} ...
+    'condition' Condition{k}}, ...
+    'updatedat','on','savedat','on','rmclust','on' );
+    i = i+1;
+    end
+end
+[STUDY ALLEEG] = std_checkset(STUDY, ALLEEG);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+EEG = eeg_checkset( EEG );
+[STUDY EEG] = pop_savestudy( STUDY, EEG, 'filename',StudyName,'filepath',StudyPath);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+
+%% design studies: all necessary information is computed in design 1. only need to do it once 
+[STUDY ALLEEG] = pop_loadstudy('filename', StudyName, 'filepath', StudyPath);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+STUDY = std_makedesign(STUDY, ALLEEG, 1, 'variable1','condition','variable2','','name','AllConditions','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',Condition,'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 2, 'variable1','condition','variable2','','name','KnownControl','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'KnownControl_late' 'KnownControl_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 3, 'variable1','condition','variable2','','name','KnownMean','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'KnownMean_late' 'KnownMean_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 4, 'variable1','condition','variable2','','name','NovelControl','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'NovelControl_late' 'NovelControl_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 5, 'variable1','condition','variable2','','name','NovelMean','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'NovelMean_late' 'NovelMean_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 6, 'variable1','condition','variable2','','name','KnownEarly','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'KnownMean_early' 'KnownControl_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 7, 'variable1','condition','variable2','','name','KnownLate','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'KnownMean_late' 'KnownControl_late'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 8, 'variable1','condition','variable2','','name','NovelEarly','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'NovelMean_early' 'NovelControl_early'},'subjselect',AllSubject);
+STUDY = std_makedesign(STUDY, ALLEEG, 9, 'variable1','condition','variable2','','name','NovelLate','pairing1','on','pairing2','on','delfiles','off','defaultdesign','off','values1',{'NovelMean_late' 'NovelControl_late'},'subjselect',AllSubject);
+[STUDY EEG] = pop_savestudy( STUDY, ALLEEG, 'savemode','resave');
+
+%% run time-frequency analysis: choose which study design to run the decomposition on
+% [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
+[STUDY ALLEEG] = pop_loadstudy('filename', StudyName, 'filepath', StudyPath);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+for i = 1: length(STUDY.design)
+    STUDY = std_selectdesign(STUDY, ALLEEG, i);
+    [STUDY ALLEEG] = std_precomp(STUDY, ALLEEG, {},...
+        'recompute','off','erp','on','ersp','on','erspparams',...
+        {'cycles' waveletpara ...
+        'freqs' freqrange ...
+        'ntimesout' timepoints ...
+        'baseline' baselinerange ...
+        'nfreqs', nbfrequency ...
+        'freqscale', 'linear' ...
+         },'itc','on');
+end
+
+%% plot and statistics
+% parameters for statistical analysis and plotting
+% SelectedCluster = Cz;
+[STUDY ALLEEG] = pop_loadstudy('filename', StudyName, 'filepath', StudyPath);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+
+% define frequency band and time window
+Timewindow = [700 900];
+FrequencyBand = [4 8];
+
+% generate all the figures with defined time window and frequency band for
+% all the study designs and save them
+for i = 1:length(STUDY.design)
+    STUDY = std_selectdesign(STUDY, ALLEEG, i); % select a particular design
+    STUDY = pop_statparams(STUDY, 'method','fieldtrip','fieldtripmethod','montecarlo','fieldtripmcorrect','cluster','fieldtripalpha',0.05); % define statistical test parameters
+    STUDY = pop_erspparams(STUDY, 'topotime',Timewindow, 'topofreq',FrequencyBand); % define time window and frequency band of interest
+    STUDY = std_erspplot(STUDY,ALLEEG,'channels',{STUDY.changrp.channels}); % generate topography good for presentation
+    STUDY = std_itcplot(STUDY,ALLEEG,'channels',{STUDY.changrp.channels});
+    FigureFileName = strcat(STUDY.design(i).name,'_',num2str(FrequencyBand(1)),'_',num2str(FrequencyBand(2)),'HZ_',num2str(Timewindow(1)),'_',num2str(Timewindow(2)),'ms');
+    saveas(gcf,FigureFileName); close(gcf);
+end
+
+% % plot differnce in ersp between conditions: need to define design
+%  chanlocs = eeg_mergelocs(ALLEEG.chanlocs);
+%  [STUDY erspdata ersptimes erspfreqs] = std_erspplot(STUDY,ALLEEG, 'channels',{STUDY.changrp.channels}, 'topotime', Timewindow, 'topofreq', FrequencyBand);
+%  erspDiff = erspdata{2}-erspdata{1};
+%  erspDiff = mean(erspDiff, 4);
+%  figure; topoplot(erspDiff, chanlocs);
+
+%% for statistical tests: to plot bar graphs or to perform brain-behavior correlations
+% extract values of a particular cluster for further statistical analysis: only use design 1 because
+% all conditions are included in the design, other parameters are the same
+% as above
+[STUDY ALLEEG] = pop_loadstudy('filename', StudyName, 'filepath', StudyPath);
+CURRENTSTUDY = 1; EEG = ALLEEG; CURRENTSET = [1:length(EEG)];
+
+STUDY = std_selectdesign(STUDY, ALLEEG, 1); 
+[STUDY erspdata ersptimes erspfreqs] = std_erspplot(STUDY,ALLEEG,'channels',SelectedCluster);
+tmperspdata = [];
+for i = 1:length(erspdata)
+tmperspdataOneCondition = mean(erspdata{i},2); % average across channels of a cluster
+tmperspdata = [tmperspdata;tmperspdataOneCondition]
+end
+tmperspdata_2 = transpose(reshape(tmperspdata,length(Condition),length(AllSubject)));
+AverageFileName = strcat(num2str(FrequencyBand(1)),'_',num2str(FrequencyBand(2)),'HZ_',num2str(Timewindow(1)),'_',num2str(Timewindow(2)),'ms');
+csvwrite(AverageFileName,tmperspdata_2)
+
+% to save data from each single electrode:
+% tmperspdata = reshape(erspdata{1},size(erspdata{1},1)*size(erspdata{1},2), size(erspdata{1},3));
+
+% to create a movie
+pnts = eeg_lat2point([-100:10:600]/1000, 1, EEG.srate, [EEG.xmin EEG.xmax]);
+% Above, convert latencies in ms to data point indices
+figure; [Movie,Colormap] = eegmovie(mean(EEG.data(:,128:2:192),3), EEG.srate, EEG.chanlocs, 0, 0);
+seemovie(Movie,-5,Colormap);
+%% to create a spectral power graph: averaging over channels,conditions,and
+% subjects
+STUDY = std_selectdesign(STUDY, ALLEEG, 1); 
+[STUDY erspdata ersptimes erspfreqs] = std_erspplot(STUDY,ALLEEG,'channels', AllElectrodes,'noplot','on');
+% ersp: condition, time, frequency, channel, subject: length(erspdata)
+tmpaveersp = [];
+for i = 5:8
+tmpaveersp(:,:,i-4) = mean(mean(erspdata{i},4),3);
+end
+aveerspdata = mean(tmpaveersp,3);
+allersp = aveerspdata;
+alltimes = ersptimes - 600;
+allfreqs = erspfreqs;
+figure;
+tftopo(allersp,alltimes(:,:,1),allfreqs(:,:,1),'limits',[-150 550 4 80 -1 1],'mode','ave', 'chanlocs', 'E1','title','Power change relative to baseline (AllElectrodes: Novel words)', ...
+     'timefreqs', [100 6; 300 6; 400 10; 400 16], 'chanlocs', ALLEEG.chanlocs);
+
+%% rename files
+
+filelist = dir('WordLearning_*.fdt'); % 176 .fdt files
+namelist = filelist.name; % a list of 176 file names, create new files in excel and add the new file names to the array
+% do that for .set files too, 352 file names eventually - 8*22
+
+for i = 1:length(namelist)
+    oldname = namelist{i,1};
+    newname = namelist{i,2};
+    movefile(oldname,newname)    
+end
+
+%%  exclude one circle of electrodes (20 channels)
+SelectedElectrodes = {...
+    'E1' 'E2' 'E3' 'E4' 'E5' 'E6' 'E7' 'E8' 'E9' 'E10' ...
+    'E11' 'E12' 'E13' 'E14' 'E15' 'E16' 'E18' 'E19' 'E20' ...
+    'E21' 'E22' 'E23' 'E24' 'E25' 'E26' 'E27' 'E28' 'E29' 'E30' ...
+    'E31' 'E32' 'E33' 'E34' 'E35' 'E36' 'E37' 'E38' 'E39' 'E40' ...
+    'E41' 'E42' 'E44' 'E45' 'E46' 'E47' 'E50' ...
+    'E51' 'E52' 'E53' 'E54' 'E55' 'E57' 'E58' 'E59' 'E60' ...
+    'E61' 'E62' 'E64' 'E65' 'E66' 'E67' 'E69' 'E70' ...
+    'E71' 'E72' 'E74' 'E75' 'E76' 'E77' 'E78' 'E79' 'E80' ...
+    'E82' 'E83' 'E84' 'E85' 'E86' 'E87' 'E89' 'E90' ...
+    'E91' 'E92' 'E93' 'E95' 'E96' 'E97' 'E98' 'E100' ...
+    'E101' 'E102' 'E103' 'E104' 'E105' 'E106' 'E108' 'E109' 'E110' ...
+    'E111' 'E112' 'E114' 'E115' 'E116' 'E117' 'E118'  ...
+    'E121' 'E122' 'E123' 'E124' 'E129'...
+    };
