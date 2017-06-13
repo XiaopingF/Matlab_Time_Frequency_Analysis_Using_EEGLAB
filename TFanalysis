@@ -1,13 +1,11 @@
-%% The scipt is written by Xiaoping Fang (xpfang4@gmail.com).
+%% The scipt is written by Xiaoping Fang (xpfang4@gmail.com), however, many of them are borrowed from eeglab list.
 
 % Currently you will need to have preprocessed data and
 % formatted in a way that is readable in EEGLAB.
-
 % The data I analyzed were collected with EGI (128 channel/GSN-Hydrocel). 
 % Preprocessing was done with NetStation and files were further formatted 
 % with EP Toolkit (developped by Joseph Dien) from simple binay format 
 % (.raw) to eeglab files (.fdt/.set).
-
 % note: still need to make the script nicer, see: https://sccn.ucsd.edu/eeglab/workshop06/handout/Practicum_8_STUDYscript.pdf
 
 %% basic study information and setup
