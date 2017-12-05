@@ -1,4 +1,4 @@
-%% The scipt is written by Xiaoping Fang (xpfang4@gmail.com) 
+%% Xiaoping Fang (xpfang4@gmail.com) 
 % Some of the scripts are borrowed from eeglab list.  
 
 % Currently you will need to have preprocessed data and
@@ -7,6 +7,7 @@
 % Preprocessing was done with NetStation and files were further formatted 
 % with EP Toolkit (developped by Joseph Dien) from simple binay format 
 % (.raw) to eeglab files (.fdt/.set).
+% EP toolkit can read multiple files at a time as long long as they all have the same channel file. 
 % note: still need to make the script nicer, see: https://sccn.ucsd.edu/eeglab/workshop06/handout/Practicum_8_STUDYscript.pdf
 
 %% basic study information and setup
